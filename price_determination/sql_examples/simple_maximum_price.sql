@@ -1,3 +1,5 @@
+SELECT "Bereite Datenbank vor....";
+
 CREATE TABLE price_list (
     pk_categoryid INTEGER primary key autoincrement,
 -- Ziffernbezeichner
@@ -49,7 +51,9 @@ CREATE TABLE invoice (
 -- Ziffernbezeichner
     performance_id    TEXT,
 -- (vorläufige/interne) Rechnungsnummer
-    invoice_id        TEXT
+    invoice_id        TEXT,
+-- Kommentartext
+    commenttext        TEXT
 );
 
 INSERT INTO invoice (submitter_id, performance_id, invoice_id) VALUES ( "001", "8466", "004");
@@ -59,6 +63,7 @@ INSERT INTO invoice (submitter_id, performance_id, invoice_id) VALUES ( "001", "
 INSERT INTO invoice (submitter_id, performance_id, invoice_id) VALUES ( "001", "8466", "004");
 INSERT INTO invoice (submitter_id, performance_id, invoice_id) VALUES ( "001", "8466", "004");
 INSERT INTO invoice (submitter_id, performance_id, invoice_id) VALUES ( "001", "5466", "004");
+INSERT INTO invoice (submitter_id, performance_id, invoice_id) VALUES ( "001", "5466", "004");
 -- Noch ein wenig Hungergrundrauschen...
 INSERT INTO invoice (submitter_id, performance_id, invoice_id) VALUES ( "001", "300b", "006");
 INSERT INTO invoice (submitter_id, performance_id, invoice_id) VALUES ( "001", "1745", "007");
@@ -66,13 +71,20 @@ INSERT INTO invoice (submitter_id, performance_id, invoice_id) VALUES ( "003", "
 INSERT INTO invoice (submitter_id, performance_id, invoice_id) VALUES ( "003", "8466", "009");
 INSERT INTO invoice (submitter_id, performance_id, invoice_id) VALUES ( "003", "8466", "009");
 
+SELECT ".....Beginne mit Berechnungen!";
 
-SELECT "ZWISCHENSCHRITT: Alle Rechnungsposten von Rechnung '004':";
+
+SELECT "#######################################################################";
+SELECT "   ZWISCHENSCHRITT: Alle Rechnungsposten von Rechnung '004':";
+SELECT "-----------------------------------------------------------------------";
+
 SELECT * FROM  invoice WHERE
    invoice.invoice_id = "004" ;
 
 
-SELECT "ZWISCHENSCHRITT: Ziffern einer Rechnung der Preisliste 'mo' zuordnen:";
+SELECT "#######################################################################";
+SELECT "   ZWISCHENSCHRITT: In einem view die Ziffern einer Rechnung der Preisliste 'mo' zuordnen:";
+SELECT "-----------------------------------------------------------------------";
 
 CREATE VIEW mo_pricing
 AS SELECT invoice.invoice_id, invoice.performance_id, price_list.money_value
@@ -81,43 +93,96 @@ WHERE invoice.performance_id = price_list.performance_id
 AND price_list.price_list_id = "mo";
 
 
-SELECT "ZWISCHENSCHRITT: view mo_pricing:";
+SELECT "#######################################################################";
+SELECT "   ZWISCHENSCHRITT: view mo_pricing:";
+SELECT "-----------------------------------------------------------------------";
+
 SELECT * FROM mo_pricing;
 
-SELECT "ZWISCHENSCHRITT: Gesamtpreisst für alle Posten der Rechnung '004' ermitteln (ohne Höchstwert):";
-SELECT "Erwartetes Ergebnis: 1.05 * 6 + 0.22 = 6.52";
+
+SELECT "#######################################################################";
+SELECT "   ZWISCHENSCHRITT: Gesamtpreisst für alle Posten der Rechnung '004' ermitteln (ohne Höchstwert):";
+SELECT "Erwartetes Ergebnis: 1.05 * 6 + 0.22 * 2 = 6.74";
+SELECT "-----------------------------------------------------------------------";
+
 SELECT SUM( money_value ) FROM mo_pricing WHERE invoice_id = "004";
 
 
-SELECT "ZWISCHENSCHRITT: Zwischensumme für Ziffer 8466 der Rechnung '004' ermitteln (ohne Höchstwert):";
+SELECT "#######################################################################";
+SELECT "   ZWISCHENSCHRITT: Zwischensumme für Ziffer 8466 der Rechnung '004' ermitteln (ohne Höchstwert):";
 SELECT "Erwartetes Ergebnis: 1.05 * 6 = 6.3";
+SELECT "-----------------------------------------------------------------------";
+
 SELECT SUM( money_value )
 FROM mo_pricing
 WHERE invoice_id = "004"
 AND performance_id ="8466";
 
-SELECT "ZWISCHENSCHRITT: Höchstpreis für die Ziffer 8466 ermitteln:";
-SELECT "Erwartetes Ergebnis: 5.34";
-SELECT money_value FROM maximum_price;
 
-SELECT "ZWISCHENSCHRITT: Überschreiten des Höchstpreis für die Ziffer 8466 ermitteln:";
-SELECT "Erwartetes Ergebnis: Höchstpreis überschritten";
-SELECT DISTINCT
+SELECT "#######################################################################";
+SELECT "   ZWISCHENSCHRITT: Höchstpreis für die Ziffer 8466 ermitteln:";
+SELECT "Erwartetes Ergebnis: 5.34";
+SELECT "-----------------------------------------------------------------------";
+
+SELECT money_value FROM maximum_price WHERE performance_id = "8466";
+
+
+SELECT "#######################################################################";
+SELECT "   ZWISCHENSCHRITT: Überschreiten des Höchstpreis für die Ziffer 8466 ermitteln:";
+SELECT "Erwartetes Ergebnis: Höchstpreis überschritten für 8466 und für 5466 nicht";
+SELECT "-----------------------------------------------------------------------";
+
+-- SELECT DISTINCT performance_id,
+SELECT performance_id,
     CASE
         WHEN
             (
                 SELECT SUM( money_value )
                 FROM mo_pricing
                 WHERE invoice_id = "004"
-                AND performance_id ="8466"
-            ) > (SELECT money_value FROM maximum_price)
+            ) > (SELECT money_value FROM maximum_price WHERE performance_id = mo_pricing.performance_id)
         THEN "Höchstpreis überschritten"
         ELSE "Höchstpreis nicht überschritten"
     END
-FROM mo_pricing
-WHERE invoice_id = "004"
-;
+    FROM mo_pricing
+    WHERE invoice_id = "004";
 
+
+SELECT "#######################################################################";
+SELECT "   ZWISCHENSCHRITT: Überschreiten des Höchstpreis für die Ziffer 8466 ermitteln:";
+SELECT "Erwartetes Ergebnis: ?????";
+SELECT "-----------------------------------------------------------------------";
+
+SELECT performance_id,
+    CASE
+        WHEN
+            (
+                SELECT SUM( money_value )
+                FROM mo_pricing
+                WHERE invoice_id = "004"
+            ) > (SELECT money_value FROM maximum_price WHERE performance_id = mo_pricing.performance_id)
+-- Höchstpreis überschritten setze alle Posten auf 0.00
+        THEN 0
+-- Verwende Normal Preiss
+        ELSE mo_pricing.money_value
+    END
+    FROM mo_pricing
+    WHERE invoice_id = "004"
+UNION ALL
+SELECT DISTINCT performance_id,
+    CASE
+        WHEN
+            (
+                SELECT SUM( money_value )
+                FROM mo_pricing
+                WHERE invoice_id = "004"
+                AND performance_id = "8466"
+            ) > (SELECT money_value FROM maximum_price WHERE performance_id = mo_pricing.performance_id)
+-- Höchstpreis überschritten. Ergänze um Posten Maximalpreis
+        THEN (SELECT money_value FROM maximum_price WHERE performance_id = "8466")
+    END
+    FROM mo_pricing
+    WHERE invoice_id = "004";
 
 -- Ergebnis müsste sein 1.05 * 6 = 6.3
 -- Höchstwertregel               = 5.34
