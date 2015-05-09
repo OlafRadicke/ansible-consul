@@ -102,7 +102,7 @@ SELECT money_value FROM maximum_price;
 
 SELECT "ZWISCHENSCHRITT: Überschreiten des Höchstpreis für die Ziffer 8466 ermitteln:";
 SELECT "Erwartetes Ergebnis: Höchstpreis überschritten";
-SELECT
+SELECT DISTINCT
     CASE
         WHEN
             (
