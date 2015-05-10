@@ -1,5 +1,12 @@
 SELECT "Bereite Datenbank vor....";
 
+-- clean up
+DROP TABLE IF EXISTS  price_list;
+DROP TABLE IF EXISTS maximum_price;
+DROP TABLE IF EXISTS invoice;
+DROP VIEW IF EXISTS mo_pricing;
+DROP VIEW IF EXISTS max_mo_pricing;
+
 CREATE TABLE price_list (
     pk_categoryid INTEGER primary key autoincrement,
 -- Ziffernbezeichner
@@ -87,7 +94,12 @@ SELECT "   ZWISCHENSCHRITT: In einem view die Ziffern einer Rechnung der Preisli
 SELECT "-----------------------------------------------------------------------";
 
 CREATE VIEW mo_pricing
-AS SELECT invoice.invoice_id, invoice.performance_id, price_list.money_value
+AS SELECT
+    invoice.submitter_id AS submitter_id,
+    invoice.invoice_id AS invoice_id,
+    invoice.performance_id,
+    price_list.money_value,
+    invoice.commenttext
 FROM invoice, price_list
 WHERE invoice.performance_id = price_list.performance_id
 AND price_list.price_list_id = "mo";
@@ -97,6 +109,7 @@ SELECT "#######################################################################"
 SELECT "   ZWISCHENSCHRITT: view mo_pricing:";
 SELECT "-----------------------------------------------------------------------";
 
+PRAGMA table_info(mo_pricing);
 SELECT * FROM mo_pricing;
 
 
@@ -162,13 +175,14 @@ SELECT "dazu führt, das alle Einzelposten der Rechnung auf 0.00 gesetzt werden"
 SELECT "und ein weitere Posten auf die Rechnung gesetzt wird der den Maximalpreis";
 SELECT "enthält.";
 SELECT "Erwartetes Ergebnis:";
-SELECT "1.) Für Rechnung 004 wird der max.Preis für Posten 8466 erreicht und diese";
+SELECT "1.) Für Rechnung 004 wird der max.Preis für Posten 8466 erreicht und die Einzelposten";
 SELECT "auf 0.00 gesetzt. 2.) Es gibt eine Zusätzliche Zeile mit dem max. Wert.";
 SELECT "3.) Der Posten 8466 auf Rechnung 009 erreicht nicht den max. Wert und wird";
 SELECT "einzeln abgerechnet. 4.) Der max. wert für Posten 8466 wird mit 0.00 veranschlagt";
 SELECT "-----------------------------------------------------------------------";
 
-SELECT first_round.invoice_id , first_round.performance_id,
+CREATE VIEW max_mo_pricing AS
+SELECT first_round.submitter_id, first_round.invoice_id , first_round.performance_id,
     CASE
         WHEN
 -- Wurde die Höchstwertregel überschritten?
@@ -192,13 +206,36 @@ SELECT first_round.invoice_id , first_round.performance_id,
         THEN 0
 -- Es greift keine Höchstwertregel; Verwende Normal Preiss
         ELSE first_round.money_value
-    END
+   END AS price,
+-- Kommentarzeile....
+   CASE
+        WHEN
+-- Wurde die Höchstwertregel überschritten?
+            (
+                SELECT SUM( mo_pricing.money_value )
+                FROM mo_pricing
+                WHERE mo_pricing.invoice_id = first_round.invoice_id
+                AND mo_pricing.performance_id = first_round.performance_id
+            ) > (
+                SELECT maximum_price.money_value
+                FROM maximum_price
+                WHERE maximum_price.performance_id = first_round.performance_id
+            )
+-- Wenn keine Höchstwertregel gefunden wird, gib Einzelpreis zurück
+            AND (
+                SELECT maximum_price.money_value
+                FROM maximum_price
+                WHERE maximum_price.performance_id = first_round.performance_id
+            ) IS NOT NULL
+-- Höchstpreis überschritten. Ergänze um Posten Kommentar.
+        THEN "Maximalpreis überschritten"
+-- Es greift keine Höchstwertregel; Verwende Normalpreis und setze max. Wert auf 0.00
+        ELSE "Höchstwert nicht erreicht"
+    END AS comment
 -- Erster Durchlauf mit Namen "first_round"
     FROM mo_pricing AS first_round
--- Nur berücksichtigen wenn Höchswert vorhanden
-    WHERE first_round.performance_id IN (SELECT performance_id FROM maximum_price)
 UNION ALL
-SELECT DISTINCT invoice_id, performance_id,
+SELECT DISTINCT second_round.submitter_id,  second_round.invoice_id, second_round.performance_id,
     CASE
         WHEN
 -- Wurde die Höchstwertregel überschritten?
@@ -221,16 +258,49 @@ SELECT DISTINCT invoice_id, performance_id,
 -- Höchstpreis überschritten. Ergänze um Posten Maximalpreis
         THEN (SELECT money_value FROM maximum_price WHERE maximum_price.performance_id = second_round.performance_id)
 -- Es greift keine Höchstwertregel; Verwende Normalpreis und setze max. Wert auf 0.00
-        ELSE 0
-    END
+        ELSE second_round.performance_id = "max preis" AND 0
+    END AS price,
+-- Kommentarzeile....
+    CASE
+        WHEN
+-- Wurde die Höchstwertregel überschritten?
+            (
+                SELECT SUM( mo_pricing.money_value )
+                FROM mo_pricing
+                WHERE mo_pricing.invoice_id = second_round.invoice_id
+                AND mo_pricing.performance_id = second_round.performance_id
+            ) > (
+                SELECT maximum_price.money_value
+                FROM maximum_price
+                WHERE maximum_price.performance_id = second_round.performance_id
+            )
+-- Wenn keine Höchstwertregel gefunden wird, gib Einzelpreis zurück
+            AND (
+                SELECT maximum_price.money_value
+                FROM maximum_price
+                WHERE maximum_price.performance_id = second_round.performance_id
+            ) IS NOT NULL
+-- Höchstpreis überschritten. Ergänze um Posten Kommentar.
+        THEN "Maximalpreis für Ziffer überschritten"
+-- Es greift keine Höchstwertregel; Verwende Normalpreis und setze max. Wert auf 0.00
+        ELSE "Maximalpreis für Ziffer nicht erreicht"
+    END AS comment
     FROM mo_pricing AS second_round
+-- Nur berücksichtigen nur wenn Höchstwert vorhanden
+    WHERE performance_id IN (SELECT performance_id FROM maximum_price)
 ;
+
+
+SELECT * FROM max_mo_pricing;
 -- Ergebnis müsste sein 1.05 * 6 = 6.3
 -- Höchstwertregel               = 5.34
 --                        + 0.22 = 5.56
 
+-- clean up
 DROP TABLE price_list;
 DROP TABLE maximum_price;
 DROP TABLE invoice;
+DROP VIEW mo_pricing;
+DROP VIEW IF EXISTS max_mo_pricing;
 
 -- Kommando zum ausführen: sqlite3 example.db < ./simple_maximum_price.sql
