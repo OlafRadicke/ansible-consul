@@ -302,7 +302,6 @@ SELECT "-----------------------------------------------------------------------"
 
 SELECT sum( price ) FROM max_mo_pricing WHERE invoice_id = "004";
 
-
 -- clean up
 DROP TABLE price_list;
 DROP TABLE maximum_price;
