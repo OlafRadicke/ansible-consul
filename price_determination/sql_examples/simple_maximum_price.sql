@@ -290,11 +290,18 @@ SELECT DISTINCT second_round.submitter_id,  second_round.invoice_id, second_roun
     WHERE performance_id IN (SELECT performance_id FROM maximum_price)
 ;
 
-
 SELECT * FROM max_mo_pricing;
--- Ergebnis müsste sein 1.05 * 6 = 6.3
--- Höchstwertregel               = 5.34
---                        + 0.22 = 5.56
+
+SELECT "#######################################################################";
+SELECT "   FINALES ERGEBNIS: Summe aller Posten auf Rechnung 004 ";
+SELECT "Erwartetes Ergebnis:";
+SELECT " Ergebnis müsste sein 1.05 * 6 = 6.3";
+SELECT " Höchstwertregel               = 5.34";
+SELECT "                      + 0.22 * = 5.78";
+SELECT "-----------------------------------------------------------------------";
+
+SELECT sum( price ) FROM max_mo_pricing WHERE invoice_id = "004";
+
 
 -- clean up
 DROP TABLE price_list;
