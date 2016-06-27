@@ -1,21 +1,14 @@
-
 [consul:children]
 server
 clients
 
-[consul:vars]
-password="secret"
-
-#[cc-hosts]
-#os-master-01.localdomain
-#os-node-01.localdomain
-#os-node-02.localdomain
-
-# host group for masters
 [server]
 consul-01.localdomain ansible_host=192.168.122.35 ansible_user=root
 
-# host group for nodes
 [clients]
 consul-02.localdomain ansible_host=192.168.122.219 ansible_user=root
 consul-03.localdomain ansible_host=192.168.122.218 ansible_user=root
+
+
+#[consul:vars]
+#password="secret"
