@@ -7,6 +7,6 @@
     "data_dir": "/srv/consul",
     "log_level": "WARN",
     "enable_syslog": true,
-    "retry_join": [{{ groups['nodes'] | join(",")}},{{ groups['masters'] | join()}}],
+    "retry_join": ["{{ groups['clients'] | join("\",\"")}}","{{ groups['server'] | join()}}"],
    "bootstrap_expect": 3
 }

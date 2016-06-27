@@ -2,7 +2,15 @@
 
 ############################## all noodes ######################################
 - name: "set up /etc/hosts on all nodes and master"
-  hosts: ccluster
+  hosts: consul
+  remote_user: root
+  gather_facts: no
+  tasks:
+    - name: "install python"
+      raw: "dnf install -y python2 python2-dnf"
+
+- name: "set up /etc/hosts on all nodes and master"
+  hosts: consul
   remote_user: root
   tasks:
 
@@ -65,7 +73,7 @@
 ############################### all server #####################################
 
 - name: "set up server"
-  hosts: masters
+  hosts: server
   remote_user: root
   tasks:
     - name: "deloy /etc/consul_server_config.json"
@@ -77,12 +85,12 @@
         mode: "0644"
 
     - name: "started consule as server"
-      shell: "consule agent -config-file  /etc/consul_server_config.json"
+      shell: "consul agent -config-file  /etc/consul_server_config.json &"
 
 ################################ all clients ###################################
 
 - name: "set up nodes"
-  hosts: nodes
+  hosts: clients
   remote_user: root
   tasks:
     - name: "deloy /etc/consul_client_config.json"
@@ -94,4 +102,4 @@
         mode: "0644"
 
     - name: "started consule as server"
-      shell: "consule agent -config-file  /etc/consul_client_config.json"
+      shell: "consul agent -config-file  /etc/consul_client_config.json &"
