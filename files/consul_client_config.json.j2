@@ -1,0 +1,12 @@
+{
+    "bind_addr":"0.0.0.0",
+    "client_addr":"0.0.0.0",
+    "bootstrap": false,
+    "server": false,
+    "datacenter": "byod",
+    "data_dir": "/srv/consul",
+    "log_level": "WARN",
+    "enable_syslog": true,
+    "retry_join": [{{ groups['nodes'] | join(",")}},{{ groups['masters'] | join()}}],
+   "bootstrap_expect": 3
+}

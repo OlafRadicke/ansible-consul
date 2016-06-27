@@ -1,0 +1,97 @@
+---
+
+############################## all noodes ######################################
+- name: "set up /etc/hosts on all nodes and master"
+  hosts: ccluster
+  remote_user: root
+  tasks:
+
+    - name: "install software with yum"
+      dnf:
+        name: "{{ item }}"
+        state: "latest"
+      with_items:
+        - "firewalld"
+        - "iptables-services"
+        - "docker"
+        - "libselinux-python"
+        - "ntp"
+        - "consul"
+        - "cockpit-docker"
+      when: ansible_pkg_mgr == "dnf"
+
+    - name: "stoping firewall"
+      service:
+        name: "{{ item }}"
+        state: "stopped"
+        enabled: "no"
+      with_items:
+        - "iptables"
+        - "firewalld"
+
+    - name: "start ntpd"
+      service:
+        name: "ntpd"
+        state: "started"
+        enabled: "yes"
+
+    - name: "check inventary"
+      debug:
+        msg: "echo  {{ hostvars[ item ].ansible_host}} {{ hostvars[ item ].inventory_hostname}} "
+      with_items: '{{ hostvars }}'
+
+    - name: "set /etc/hosts"
+      lineinfile:
+        dest: "/etc/hosts"
+        regexp: "{{ hostvars[ item ].inventory_hostname}}"
+        line: "{{ hostvars[ item ].ansible_host}} {{ hostvars[ item ].inventory_hostname}}"
+        owner: "root"
+        group: "root"
+        mode: "0644"
+      with_items: '{{ hostvars }}'
+
+    - name: "create /etc/consul.d"
+      file:
+        path: "/etc/consul.d"
+        state: "directory"
+        mode: "0755"
+
+    - name: "create /srv/consul"
+      file:
+        path: "/srv/consul"
+        state: "directory"
+        mode: "0755"
+
+############################### all server #####################################
+
+- name: "set up server"
+  hosts: masters
+  remote_user: root
+  tasks:
+    - name: "deloy /etc/consul_server_config.json"
+      template:
+        src: "./files/consul_server_config.json.j2"
+        dest: "/etc/consul_server_config.json"
+        owner: "root"
+        group: "root"
+        mode: "0644"
+
+    - name: "started consule as server"
+      shell: "consule agent -config-file  /etc/consul_server_config.json"
+
+################################ all clients ###################################
+
+- name: "set up nodes"
+  hosts: nodes
+  remote_user: root
+  tasks:
+    - name: "deloy /etc/consul_client_config.json"
+      template:
+        src: "./files/consul_client_config.json.j2"
+        dest: "/etc/consul_client_config.json"
+        owner: "root"
+        group: "root"
+        mode: "0644"
+
+    - name: "started consule as server"
+      shell: "consule agent -config-file  /etc/consul_client_config.json"
