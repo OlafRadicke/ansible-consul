@@ -1,4 +1,4 @@
-# ansible-consule #
+# ansible-consul #
 
 ## requirements ##
 
