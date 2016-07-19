@@ -1,7 +1,7 @@
 ---
 
 ############################## all noodes ######################################
-- name: "set up /etc/hosts on all nodes and master"
+- name: "set up python"
   hosts: consul
   remote_user: root
   gather_facts: no
